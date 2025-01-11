@@ -30,10 +30,17 @@ class PolynomialMultiplication
                 Console.WriteLine($"Polynomial 1: {PolyToString(poly1)}");
                 Console.WriteLine($"Polynomial 2: {PolyToString(poly2)}");
 
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+
                 int[] result = ParallelKaratsuba(poly1, poly2, comm);
 
+                stopwatch.Stop();
+
                 if (result != null)
+                {
                     Console.WriteLine($"Result: {PolyToString(result)}");
+                }
             }
             else
             {
