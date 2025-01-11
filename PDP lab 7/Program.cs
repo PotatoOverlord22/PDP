@@ -40,6 +40,7 @@ class PolynomialMultiplication
                 if (result != null)
                 {
                     Console.WriteLine($"Result: {PolyToString(result)}");
+                    Console.WriteLine($"Time taken: {stopwatch.Elapsed.TotalMilliseconds} ms");
                 }
             }
             else
