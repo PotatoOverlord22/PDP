@@ -1,14 +1,22 @@
-﻿namespace GraphColoring
+﻿using System.Diagnostics;
+
+namespace GraphColoring
 {
     public class Program
     {
-        private static readonly int nColors = 10;
+        private static readonly int nColors = 20;
         private static readonly int numThreads = 10;
-        private static readonly int numNodes = 100;
-        private static readonly int numEdges = 300;
+        private static readonly int numNodes = 8;
+        private static readonly int numEdges = 20;
 
         static void Main(string[] args)
         {
+            /*while (!Debugger.IsAttached)
+            {
+                Console.WriteLine("Waiting for debugger");
+                Thread.Sleep(2000);
+            }*/
+
             ColorGraph graph = new ColorGraph();
 
             for (int i = 0; i < numNodes; i++)
@@ -34,11 +42,13 @@
             }
 
             GraphColoringBL graphBL = new GraphColoringBL(graph, nColors);
-            graphBL.ThreadedGraphColoring(numThreads);
 
-            graphBL.PrintGraph();
+            graphBL.MPIGraphColoring(ref args);
 
-            Console.WriteLine($"\nGraph is colored correctly: {graphBL.IsValidColoredGraph()}");
+            /*graphBL.ThreadedGraphColoring(numThreads);*/
+            /*graphBL.PrintGraph();*/
+
+            /*Console.WriteLine($"\nGraph is colored correctly: {graphBL.IsValidColoredGraph()}");*/
         }
     }
 }

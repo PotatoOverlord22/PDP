@@ -57,5 +57,25 @@ namespace GraphColoring
 
             return sb.ToString();
         }
+
+        public ColorGraph DeepCopy()
+        {
+            ColorGraph newGraph = new ColorGraph();
+
+            foreach (Node node in _nodes)
+            {
+                newGraph.AddNode(node.DeepCopy());
+            }
+
+            foreach (Node node in _nodes)
+            {
+                foreach (Node neighbor in _adjacency[node])
+                {
+                    newGraph.AddEdge(newGraph.GetNode(node)!, newGraph.GetNode(neighbor)!);
+                }
+            }
+
+            return newGraph;
+        }
     }
 }

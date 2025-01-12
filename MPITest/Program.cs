@@ -1,33 +1,27 @@
 ﻿using MPI;
-using System.Diagnostics;
-using System.Text.Json;
+using System;
 
 class Program
 {
+    const int SYNC_TAG = 100; // Example tag for synchronization
+
     static void Main(string[] args)
     {
-        /*while (!Debugger.IsAttached)
-        {
-            Console.WriteLine("Waiting for debugger to attach...");
-            Thread.Sleep(2000);
-        }*/
-
         using (new MPI.Environment(ref args))
         {
-            Intracommunicator comm = Communicator.world;
-            int rank = comm.Rank;
+            Intracommunicator communicator = Communicator.world;
 
-            if (rank == 0)
+            if (communicator.Rank == 0)
             {
-                int[] serializedData = { 1, 2, 3, 4, 5 };
-                comm.Send<int[]>(serializedData, 1, 0);
+
+                ReceiveRequest status = communicator.ImmediateReceive<string>(Communicator.anySource, SYNC_TAG);
+
+                Console.WriteLine($"Message received from Rank {status.GetValue()}");
             }
             else
             {
-                int[] deserializedData = new int[20];
-                comm.Receive<int[]>(0, 0, out deserializedData);
-                Console.WriteLine(string.Join(", ", deserializedData));
-                Console.WriteLine($"length: {deserializedData.Length}");
+                string message = $"Hello from Ra2222nk {communicator.Rank}";
+                communicator.Send(message, 0, SYNC_TAG);
             }
         }
     }
