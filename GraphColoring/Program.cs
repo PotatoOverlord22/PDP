@@ -6,8 +6,8 @@ namespace GraphColoring
     {
         private static readonly int nColors = 20;
         private static readonly int numThreads = 10;
-        private static readonly int numNodes = 8;
-        private static readonly int numEdges = 20;
+        private static readonly int numNodes = 5;
+        private static readonly int numEdges = 1;
 
         static void Main(string[] args)
         {
@@ -46,9 +46,6 @@ namespace GraphColoring
             graphBL.MPIGraphColoring(ref args);
 
             /*graphBL.ThreadedGraphColoring(numThreads);*/
-            /*graphBL.PrintGraph();*/
-
-            /*Console.WriteLine($"\nGraph is colored correctly: {graphBL.IsValidColoredGraph()}");*/
         }
     }
 }

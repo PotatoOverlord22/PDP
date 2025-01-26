@@ -3,6 +3,7 @@
 namespace GraphColoring
 {
     // this is an undirected graph where the nodes can be labeled (colored)
+    [Serializable]
     public class ColorGraph
     {
         private HashSet<Node> _nodes;

@@ -1,7 +1,5 @@
 ﻿using MPI;
-using System.Collections.Concurrent;
-using System.Drawing;
-using System.Threading;
+using System.Diagnostics;
 
 namespace GraphColoring
 {
@@ -10,8 +8,9 @@ namespace GraphColoring
         private const int PARTITION_TAG = 0;
         private const int REQUEST_TAG = 1;
         private const int SEND_TAG = 2;
-        private const int END_TAG = 3;
-        private readonly ColorGraph _graph;
+        private const int GRAPH_TAG = 3;
+        private const int END_TAG = 4;
+        private ColorGraph _graph;
         private readonly int _nColors;
 
         public GraphColoringBL(int nColors)
@@ -59,9 +58,18 @@ namespace GraphColoring
 
                 HashSet<Node> localPartition = null;
 
+                // root
                 if (rank == 0)
                 {
+                    Stopwatch stopwatch = new Stopwatch();
+                    stopwatch.Start();
+
                     List<HashSet<Node>> partitions = PartitionGraph(size - 1);
+
+                    for (int i = 1; i < size; i++)
+                    {
+                        comm.Send<ColorGraph>(_graph, i, GRAPH_TAG);
+                    }
 
                     for (int i = 1; i < size; i++)
                     {
@@ -70,20 +78,27 @@ namespace GraphColoring
 
                     Listen(comm);
 
+                    stopwatch.Stop();
+
                     PrintGraph();
+                    Console.WriteLine($"Time elapsed: {stopwatch.Elapsed.TotalMilliseconds}ms");
                     Console.WriteLine($"\nGraph is colored correctly: {IsValidColoredGraph()}");
 
                     return;
                 }
 
+                // others
+                comm.Receive<ColorGraph>(0, GRAPH_TAG, out _graph);
                 comm.Receive<HashSet<Node>>(0, 0, out localPartition);
                 HashSet<Node> boundaryVertices = IdentifyBoundaryVertices(localPartition);
 
-                Console.WriteLine($"{rank}: Coloring: {string.Join(", ", localPartition)}.");
+                Console.WriteLine($"{rank}: Wants to color: {string.Join(", ", localPartition)}.");
 
                 foreach (Node node in localPartition.Except(boundaryVertices))
                 {
                     node.Color = GetMinimumLegalColor(node);
+                    _graph.GetNode(node).Color = node.Color;
+                    Console.WriteLine($"{rank}: Coloring node {node.Id} with color {node.Color}.");
                 }
 
                 SendNodeUpdates(comm, localPartition.Except(boundaryVertices).ToArray());
@@ -117,6 +132,8 @@ namespace GraphColoring
 
         public void ThreadedGraphColoring(int numThreads)
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             List<HashSet<Node>> partitions = PartitionGraph(numThreads);
 
             Parallel.For(0, numThreads, threadId =>
@@ -151,6 +168,11 @@ namespace GraphColoring
                     }
                 }
             });
+
+            stopwatch.Stop();
+            PrintGraph();
+            Console.WriteLine($"\nGraph is colored correctly: {IsValidColoredGraph()}");
+            Console.WriteLine($"Time elapsed: {stopwatch.Elapsed.TotalMilliseconds}ms");
         }
 
         private List<HashSet<Node>> PartitionGraph(int numPartitions)
@@ -189,6 +211,8 @@ namespace GraphColoring
                                    .Select(n => n.Color.Value)
                                    .ToHashSet();
 
+            Console.WriteLine($"Coloring node {node.Id}: Used colors: {string.Join(", ", usedColors)}.");
+
             for (int color = 1; color <= _nColors; color++)
             {
                 if (!usedColors.Contains(color))
@@ -222,7 +246,6 @@ namespace GraphColoring
 
         private void RequestNodeUpdates(Intracommunicator comm, params Node[] nodesToSync)
         {
-            Console.WriteLine($"{comm.Rank}: Requesting node updates.");
             comm.Send<MPISynchronizationMessage>(new MPISynchronizationMessage
             {
                 Nodes = nodesToSync,
@@ -230,16 +253,20 @@ namespace GraphColoring
             }, 0, REQUEST_TAG);
 
             comm.Receive<Node[]>(0, REQUEST_TAG, out Node[] receivedNodes);
+
+            List<Node> localNodes = new List<Node>();
             foreach (Node updatedNode in receivedNodes)
             {
-                Node localNode = _graph.GetNode(updatedNode);
-                localNode.Color = updatedNode.Color;
+                _graph.GetNode(updatedNode).Color = updatedNode.Color;
+                localNodes.Add(_graph.GetNode(updatedNode));
             }
+
+            Console.WriteLine($"{comm.Rank}: Synced colors: " + string.Join(", ", localNodes.Select(n => $"Node {n.Id}: {n.Color}")));
         }
 
         private void SendNodeUpdates(Intracommunicator comm, params Node[] nodesToSync)
         {
-            Console.WriteLine($"{comm.Rank}: Sending node updates.");
+            Console.WriteLine($"{comm.Rank}: Sending updates for: " + string.Join(", ", nodesToSync.Select(n => $"Node {n.Id}: {n.Color}")));
             comm.Send<MPISynchronizationMessage>(new MPISynchronizationMessage
             {
                 Nodes = nodesToSync,
@@ -273,7 +300,6 @@ namespace GraphColoring
 
                     case REQUEST_TAG:
                         comm.Receive<MPISynchronizationMessage>(status.Source, REQUEST_TAG, out MPISynchronizationMessage receivedRequestMessage);
-                        Console.WriteLine("0: Received request message from rank " + receivedRequestMessage.ProcessId);
 
                         List<Node> localNodes = new List<Node>();
                         foreach (Node node in receivedRequestMessage.Nodes)
@@ -286,9 +312,7 @@ namespace GraphColoring
 
                     case SEND_TAG:
                         comm.Receive<MPISynchronizationMessage>(status.Source, SEND_TAG, out MPISynchronizationMessage receivedMessage);
-                        /* Console.WriteLine($"0: Got send message from rank {receivedMessage.ProcessId}, COLORED: {string.Join(", ", receivedMessage.Nodes.ToList())}");*/
-                        Console.WriteLine($"0: Got the following colors from {receivedMessage.ProcessId}: " + string.Join(", ", receivedMessage.Nodes.Select(n => $"Node {n.Id}: {n.Color}")));
-
+                        Console.WriteLine($"0: Updating the following colors from {receivedMessage.ProcessId}: " + string.Join(", ", receivedMessage.Nodes.Select(n => $"Node {n.Id}: {n.Color}")));
 
                         foreach (Node node in receivedMessage.Nodes)
                         {
